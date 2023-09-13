@@ -1,3 +1,40 @@
+import sys
+nas_folder = "." 
+sys.path.insert(1, f'{nas_folder}/mylibraries')
+
+import connetslib.graphlib.graphbuilder as glib_builder
+import connetslib.graphlib.storage as glib_storage
+import connetslib.graphlib.analysis as glib_analysis
+
+import connetslib.triadlib.census_functions as census_functions
+import connetslib.triadlib.enum_commons as enum_commons
+import connetslib.triadlib.plotting_functions as plotting
+import connetslib.triadlib.directed_census_utils as directed_census_utils
+import connetslib.triadlib.aggregated_functions as agg_funcs
+import connetslib.triadlib.triad_metrics as triad_metrics
+
+
+def build_graph(transaction_filepath, start_time = None, end_time = None):
+
+    transactions = glib_storage.load_transactions_dataframe(transaction_filepath)
+
+    # TODO: prendi min/max o fai un mese
+    if start_time is None:
+        start_time = glib_builder.get_start_time(transactions, timestamp_key="timestamp")
+
+    if end_time is None:
+        end_time = glib_builder.get_end_time(transactions, timestamp_key="timestamp")
+
+    G = glib_builder.simple_construction_from_dataframe(transactions, 
+                                      start_string = start_time,
+                                      end_string = end_time, 
+                                      GRAPH_TYPE = "digraph", 
+                                      add_edge_func = glib_builder.add_edge_function_weight_temporal,
+                                     )
+    
+    return G
+    
+
 from datetime import datetime
 def now(comment=""):
     print( f"{str(datetime.now())[:19]} {comment}" )
@@ -43,9 +80,9 @@ import numpy as np
 import matplotlib.colors as mcolors
 from datetime import datetime
 #import matplotlib.pyplot as plt
-SMALL_SIZE = 14
-MEDIUM_SIZE = 16
-BIGGER_SIZE = 18
+#SMALL_SIZE = 14
+#MEDIUM_SIZE = 16
+#BIGGER_SIZE = 18
 
 def make_folder(dirname):
     
@@ -223,6 +260,7 @@ def get_zscore_p_value_for_table_normalized(key, agg_res, agg_res_avg, alpha=0.0
 
 
 # Plots
+from collections import OrderedDict
 
 def plot_open(cnt, k, focus):
     
@@ -310,4 +348,120 @@ def plot_evolutions(cnt, k, focus):
     ax.grid(visible=True, which='minor', color='darkgrey', linewidth=0.5)
 
     save_current_image_in_folder(fname=f"{k}-{focus}", folder_path=".")
+    plt.show()
+    
+
+def plot_triads_delay(data, save_name):
+
+    focus="triads-delay"
+    #for k in info_delays_all:
+    #print(k)
+    #selected = info_delays_all[k] 
+    k = save_name
+    selected = data["info_delays"]
+    triadic_closure_delays_days = selected["triadic_closure_delays_days"]
+
+    x = [ pair[0] for pair in triadic_closure_delays_days.items()]
+    y = [ pair[1] for pair in triadic_closure_delays_days.items()]
+    y = np.cumsum([ pair[1] for pair in sorted(triadic_closure_delays_days.items())])/sum([ pair[1] for pair in triadic_closure_delays_days.items()])
+
+    plt.figure(figsize=(6,4))
+    plt.plot(x,y,color=None, lw = 5)
+
+    # line_dates=[4,8,12,20,30]
+    # for l in line_dates:
+    #     plt.axvline(l,color='r',alpha=0.5)
+    
+    plt.ylim((0,1))
+    plt.xscale("log")
+    plt.grid()
+    
+    # ax = plt.gca()
+    # #ax.get_xaxis().set_minor_locator(mpl.ticker.AutoMinorLocator())
+    # ax.get_yaxis().set_minor_locator(mpl.ticker.AutoMinorLocator())
+    # ax.grid(visible=True, which='major', color='darkgrey', linewidth=1.0)
+    # ax.grid(visible=True, which='minor', color='darkgrey', linewidth=0.5)
+    
+    save_current_image_in_folder(fname=f"{k}-{focus}", folder_path=".")
+    
+    plt.show()
+    
+    
+def plot_ratio(data, save_name, running_avg_window = 7):
+    import numpy as np
+    from scipy.ndimage.filters import uniform_filter1d
+    
+    k = save_name
+    focus = "ratio"
+
+    interval = 90
+    #plt.figure(figsize=(6,4))
+    fig, ax = plt.subplots(figsize=(8,5))      
+
+    # Closures per day
+    selected = data["info_delays"] #info_delays_all[k]  
+    day_closure = selected["day_closure"]
+    x2 = [ datetime.strptime(pair[0], '%Y-%m-%d') for pair in day_closure.items()]
+    y2 = [ pair[1] for pair in day_closure.items()]
+    
+    y2 = uniform_filter1d(y2, size = running_avg_window)
+    
+    plt.plot(x2,y2,alpha=0.9, color="tab:blue", label="Triads", zorder=1)
+    # plt.fill_between(x2, y2, alpha=0.4, color="tab:blue", zorder=1)
+
+    # Links per day
+    links_per_day = data["links_per_day"]
+    x = [ datetime.strptime(pair[0], '%Y-%m-%d') for pair in links_per_day.items()]
+    y = [ pair[1] for pair in links_per_day.items()]
+    y = uniform_filter1d(y, size = running_avg_window)
+    
+    plt.plot(x,y, alpha=0.9, color="tab:orange", label="Links", zorder=2)
+    # plt.fill_between(x, y, alpha=0.4, color="tab:orange", zorder=2)
+    
+    
+    formatter = DateFormatter('%b %Y')
+    plt.gcf().axes[0].xaxis.set_major_formatter(formatter)
+    plt.gcf().axes[0].xaxis.set_major_locator(DayLocator(interval=interval))
+    #plt.gcf().axes[0].xaxis.grid(True, which="minor")
+    #plt.gcf().autofmt_xdate()
+    plt.ylabel('Links and triads')
+
+    plt.xticks(rotation='-25', fontsize = 10)
+    plt.yscale("log")
+    # plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0), useMathText=True)
+
+    plt.legend(loc = "upper left")
+    # Ratio 
+    
+    ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+    ax2.set_ylabel('Triads/Links')#, color=color)  # we already handled the x-label with ax1
+    
+    # Note: triangles / links. There cannot be a closure without links. We could have link not leading to closures, but it's unlikely.
+    # So we should have that len(triangles_per_day) <= len(links_per_day)
+    x3 = []
+    y3 = []
+    for d,v in links_per_day.items():
+        x3.append(d)
+        if d in day_closure:
+            n = day_closure[d]
+        else:
+            n = 0
+        ratio = n/v
+        y3.append(ratio)
+    x3 = [ datetime.strptime(d, '%Y-%m-%d') for d in x3]
+    y3 = uniform_filter1d(y3, size = running_avg_window)
+    
+    plt.plot(x3,y3,color="firebrick", label="Ratio", lw=2)
+    
+    plt.ylim((0,None))
+    # plt.grid()
+    plt.legend(loc="upper right")
+    # ax = plt.gca()
+    # #ax.get_xaxis().set_minor_locator(mpl.ticker.AutoMinorLocator())
+    # ax.get_yaxis().set_minor_locator(mpl.ticker.AutoMinorLocator())
+    # ax.grid(visible=True, which='major', color='darkgrey', linewidth=1.0)
+    # ax.grid(visible=True, which='minor', color='darkgrey', linewidth=0.5)
+    
+    save_current_image_in_folder(fname=f"{k}-{focus}", folder_path=".")
+
     plt.show()

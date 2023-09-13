@@ -322,3 +322,15 @@ def get_stored_triads(SNAP_SETTINGS_PATH):
 # def store_triad_gap_encoding(vals):
 #     v,u,w = vals
 #     return  f'{",".join( [str(el) for el in [v, (u-v), (w-v)] ] )}\n'.encode() 
+
+
+def get_original_snapshot(SNAP_SETTINGS_PATH):
+
+    import networkx as nx
+    
+    SNAP_SETTINGS = load_json(SNAP_SETTINGS_PATH)
+
+    G = nx.read_gpickle(SNAP_SETTINGS["path_original_snapshot"]) #("karaatetestgraph.gpickle") # nx.read_gpickle(SNAP_SETTINGS["path_mapped"])
+    G.remove_edges_from(nx.selfloop_edges(G))    
+    
+    return G
