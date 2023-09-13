@@ -34,32 +34,6 @@ def store_csv(df, PROCESSED_DATA_PATH, DATASET_NAME, suffix ="_edges", keys = ["
     return path
 
 
-import sys
-# sys.path.insert(1, f'{blockchain_nas_folder}/scripts/')
-nas_folder = "." 
-sys.path.insert(1, f'{nas_folder}/mylibraries')
-
-# sys.path.insert(1, f'{nas_folder}/mylibraries')
-import connetslib.graphlib.graphbuilder as glib_builder
-import connetslib.graphlib.storage as glib_storage
-import connetslib.graphlib.analysis as glib_analysis
-
-import connetslib.triadlib.census_functions as census_functions
-import connetslib.triadlib.enum_commons as enum_commons
-import connetslib.triadlib.plotting_functions as plotting
-import connetslib.triadlib.directed_census_utils as directed_census_utils
-import connetslib.triadlib.aggregated_functions as agg_funcs
-
-#### 0 - 5 open triads 6 casi
-#### 6 - 12 closed triads 7 casi
-mapping_census_to_baseline = {'003': 13, ####null triad
- '012': 14, #### diadic
- '102': 15, #### diadic
- '021D': 0,  '021U': 3,  '021C': 1,  '111D': 4,  '111U': 2,  '030T': 6,
- '030C': 7, '201': 5,  '120D': 10,  '120U': 8,  '120C': 9,  '210': 11,
- '300': 12
-}
-
 import matplotlib.pyplot as plt; 
 import matplotlib.pyplot as plt; 
 from matplotlib.dates import DateFormatter

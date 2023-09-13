@@ -1,3 +1,5 @@
+import os
+
 def directed_triadic_census_elite(G, timestamp_key = "t", save_name= "karatetestgraph", folder="triadic_data", store_closed=True, processes=2, max_subprocesses=None):
     
     from . import preprocessLib as preprocessLib
@@ -37,50 +39,6 @@ def directed_triadic_census_elite(G, timestamp_key = "t", save_name= "karatetest
     
     return {"aggregated_results":aggregated_results, "result_path":params["result_path"] }
 
-
-
-# def directed_triadic_census(G, timestamp_key = "t", save_name= "karatetestgraph", folder="triadic_data", processes=2, max_subprocesses=2):
-    
-    
-#     from . import preprocessLib as preprocessLib
-#     from . import enum_commons as enum_commons
-#     from . import directed_census_utils as directed_census_utils
-
-    
-#     params = {
-#         "DATA_FOLDER": folder, # folder where the library can store the data, will be created
-#         "DATASET_NAME": save_name, # subfolder for this dataset, multiple snapshots can be stored here. it will be created
-#         "TIMESTAMP_KEY": timestamp_key 
-#     }
-    
-    
-#     aggregated_results = {}
-    
-#     return aggregated_results
-
-
-# def graph_shuffle_edge_attribute(G, attribute ="timestamp", seed = 42):
-
-#     attrs = [ e[2][attribute] for e in G.edges(data=True) ]
-#     # shuffle the edges values list and use nx.set_attribute to override the selected attribute
-
-#     import copy
-#     import networkx as nx
-#     import random
-#     random.seed(seed)
-
-#     random.shuffle( attrs )
-
-#     # Note we may avoid generating attrs list, just shuffling the edges indices
-#     # However, I'm not sure how efficient the access to G[u][v]
-
-#     new_attribute_map = { (e[0],e[1]): t for e,t in zip(G.edges(), attrs) }
-
-#     G_shuffled = copy.deepcopy(G)
-
-#     nx.set_edge_attributes(G_shuffled, new_attribute_map, name= attribute)
-
-#     return G_shuffled  # do we want a copy????
 
 def graph_shuffle_edge_attribute(G, attribute ="timestamp", seed = 42, in_place = False):
     
@@ -217,6 +175,60 @@ def directed_triadic_census_elite_significativity(G, timestamp_key = "t", save_n
     results["result_filepath"] = filepath
 
     return results
+
+def parallel_triadic_census_plain(G,save_name, timestamp_key="min_timestamp", folder="triadic_data", store_closed=True, n_processes=2):
+
+    results = directed_triadic_census_elite_significativity_args(G, 
+                                                        timestamp_key= timestamp_key, #known, simple_construction_from_dataframe
+                                                        save_name= save_name, 
+                                                        folder = folder, 
+                                                        processes=n_processes,
+                                                        N=0,
+                                                        graph_shuffle_func = None,
+                                                        graph_shuffle_func_args_dict= None                  
+                                                    )
+    
+    
+    return results
+
+def parallel_triadic_census_shuffled(G, save_name, shuffle_type, timestamp_key="min_timestamp", folder="triadic_data", store_closed=True, n_processes=2, N=3, shuffle_nswapfraction=None):
+
+    graph_shuffle_func_args_dict = {}
+    graph_shuffle_func = None
+    
+    if shuffle_type =="time":
+        graph_shuffle_func = graph_shuffle_edge_attribute
+        #graph_shuffle_func_args_dict = {}
+    
+    if shuffle_type =="structure":
+        graph_shuffle_func = graph_shuffle_structure
+        graph_shuffle_func_args_dict = {"nswap_fraction":shuffle_nswapfraction}
+    
+    if shuffle_type =="time_structure":
+        graph_shuffle_func = graph_shuffle_time_structure
+        graph_shuffle_func_args_dict = {"nswap_fraction":shuffle_nswapfraction}
+        
+    print("Shuffle:",shuffle_type, graph_shuffle_func_args_dict)
+    
+    if graph_shuffle_func is None:
+        print(f"No shuffle function behavior for the specified shuffle_type parameter: {shuffle_type}" )
+        print("Current valid values: time, structure, time_structure. Check typos!!!!" )
+        #sys.exit(f"No shuffle function behavior for the specified shuffle_type parameter: {shuffle_type} . Exiting ...")
+    
+    
+    results = directed_triadic_census_elite_significativity_args(G, 
+                                                        timestamp_key= timestamp_key, #known, simple_construction_from_dataframe
+                                                        save_name= save_name, 
+                                                        folder = folder, 
+                                                        processes=n_processes,
+                                                        N=N,
+                                                        graph_shuffle_func = graph_shuffle_func,
+                                                        graph_shuffle_func_args_dict= graph_shuffle_func_args_dict                  
+                                                    )
+    
+    
+    return results
+
 
 # https://networkx.org/documentation/latest/_modules/networkx/algorithms/swap.html#directed_edge_swap
 
