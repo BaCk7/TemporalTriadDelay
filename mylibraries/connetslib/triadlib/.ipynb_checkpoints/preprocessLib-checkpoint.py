@@ -153,7 +153,7 @@ def preprocess_snapshot(original_digraph, path, graph_name, mapping_user_id, tim
         print ("Successfully created the directory %s " % path)    
 
     
-    print(nx.info(original_digraph))
+    #print(nx.info(original_digraph))
 
     path = path+"/"+graph_name
     

@@ -17,7 +17,8 @@ import connetslib.triadlib.triad_metrics as triad_metrics
 def build_graph(transaction_filepath, start_time = None, end_time = None):
 
     transactions = glib_storage.load_transactions_dataframe(transaction_filepath)
-
+    transactions['from'] = transactions['from'].astype(str)
+    transactions['to'] = transactions['to'].astype(str)
     # TODO: prendi min/max o fai un mese
     if start_time is None:
         start_time = glib_builder.get_start_time(transactions, timestamp_key="timestamp")
