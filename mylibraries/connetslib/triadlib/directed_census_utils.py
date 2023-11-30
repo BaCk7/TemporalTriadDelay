@@ -162,11 +162,6 @@ def triad_code_outdegree(triad_abc, outdegrees):
     outdeg_bits = "".join([ str(outdegrees[n]) for n in triad_abc])
     return outdeg_bits
 
-def count_for_open(result, pr_bits, outdeg_bits,triangle,triad_abc,edges_by_time):
-    result['pageranks_open'][pr_bits] +=1
-    result['outdegrees_open'][outdeg_bits] +=1
-    ####istances_open[istance_bits] +=1
-
 
 def analyze_triad_closure(triangle, ordered_triad, edges_by_time):
 
@@ -216,6 +211,225 @@ def analyze_triad_closure(triangle, ordered_triad, edges_by_time):
     return {"evolution": (str(before_closure), str(closure_state)), "closing_time":closing_time}
 
 
+
+    
+def count_for_open_simple(result, triangle,triad_abc,edges_by_time):
+    return None
+    
+def count_for_closed_simple(result, triangle,triad_abc,edges_by_time):
+
+    res = analyze_triad_closure(triangle, triad_abc, edges_by_time)
+    evolution = res["evolution"]
+    evol = "".join(list(evolution))
+    #print("EVOLUTION HERE: ------>",evolution, evol,result)
+    result["evolutions"][evol] +=1
+    
+def init_worker_simple(params,dummy_variable): #,PR, PR_shape):
+    
+    import pickle
+    import copy
+    import scipy
+    # Using a dictionary is not strictly necessary. You can also
+    # use global variables.
+    
+    # print("Init worker start")
+    # print(params)
+    
+    global var_dict # https://stackoverflow.com/questions/38795826/optimizing-multiprocessing-pool-with-expensive-initialization
+    var_dict = copy.deepcopy(params)
+    
+    # print("Reading files: _sparse_matrix, node_in_matrix")
+
+    var_dict['sparse'] = scipy.sparse.load_npz(params["path_sparse_matrix_csr"])
+
+    with open(params["path_node_in_matrix"],"rb") as f:
+        var_dict['nim'] = pickle.load(f)
+
+    #graph_name = graph_name.split(".")[0]
+  
+    with open(params["path_neighborhoods_lists"],"rb") as f:
+        ##print("reading neighborhoods_sorted.pkl")
+        var_dict['neighborhoods']  = pickle.load(f)
+
+    # print("Init worker FINISH")
+    
+
+#@monitor_elapsed_time
+def enumerate_triadic_census_simple(chunk_index):
+    
+    chunk_index = chunk_index[0] # non serve più la funzione intermedia che spacchetta
+    
+    import pickle
+    
+    from datetime import datetime,timedelta
+
+    import time
+    import gzip
+    import json
+    import os
+    
+    from . import enum_commons
+    from . import logging
+
+    dispatcher = {
+        0: count_for_open_simple,
+        1: count_for_open_simple,
+        2: count_for_open_simple,
+        3: count_for_open_simple,
+        4: count_for_open_simple,
+        5: count_for_open_simple,
+        6: count_for_closed_simple,
+        7: count_for_closed_simple,
+        8: count_for_closed_simple,
+        9: count_for_closed_simple,
+        10: count_for_closed_simple,
+        11: count_for_closed_simple,
+        12: count_for_closed_simple
+    }
+
+    directory_path = var_dict['directory_path']
+    chunk_size = var_dict['chunk_size']
+    limit = var_dict["max_subprocesses"] #['limit']
+    #graph_name = var_dict['graph_name']
+
+    node_in_matrix = var_dict['nim']
+    sparse_matrix = var_dict['sparse']
+    
+    STORE_CLOSED = var_dict["STORE_CLOSED"]
+
+    ## ricavo il range
+    start = chunk_index*chunk_size
+    stop = start + chunk_size
+
+    neighborhoods_sorted = var_dict['neighborhoods']
+
+    selected_nodes = sorted(list(neighborhoods_sorted.keys()))
+
+
+    limitv = limit #,limitu,limitw = limit
+
+    step = limitv
+    indexes = [ (i*step) + chunk_index for i in range(chunk_size)]
+    selected_nodes = [selected_nodes[i] for i in indexes if i < len(selected_nodes)]
+    
+    
+    log_folder_path = var_dict["log_folder_path"]
+    LOG_FILE = log_folder_path+ "/" +str(chunk_index)+"_log.txt"
+    logging.setup_log_file(LOG_FILE)
+    logging.printlog(datetime.now(),"Processing:",chunk_index," - RANGE:",start,stop, "- Nodes are:", selected_nodes )
+    
+    # print(datetime.now(),"Processing:",chunk_index," - RANGE:",start,stop, "- Nodes are:", selected_nodes )
+
+    census = {name: 0 for name in TRIAD_NAMES}
+
+    evolutions = {'06': 0, '010': 0,
+                  '16': 0, '17': 0, '19': 0,
+                  '28': 0, '29': 0, '211': 0,
+                  '36': 0, '38': 0,
+                  '49': 0, '410': 0, '411': 0,
+                  '511': 0, '512': 0}
+
+    result = {
+            'census': census,
+            'evolutions': evolutions,
+            }
+    
+    positive_examples = []
+
+    ## Crea file associato al chunk
+    filepath = directory_path+"/"+str(chunk_index)+".json.gz"
+
+    #with open(filepath,"w+") as f:
+    with gzip.open(filepath, 'wt+', encoding="utf-8") as zipfile:
+
+        processed = 0
+        total = len(selected_nodes)
+        t_started = time.time()
+
+        vnbrs = []
+        unbrs = []
+        for v in selected_nodes:
+            cont = 0
+            vnbrs = neighborhoods_sorted[v] ## vicini del seed
+
+            for u in vnbrs:
+                if u <= v:
+                    continue
+                    
+                ##neighbors = (vnbrs | set(G.succ[u]) | set(G.pred[u])) - {u, v}
+                #neighbors = (vnbrs| neighborhoods_sorted[u]) - {u,v}
+                unbrs = neighborhoods_sorted[u]
+
+                buffer = []
+                ws = []
+
+                for w in enum_commons.iterator_union_sorted_array_helper(vnbrs,unbrs,skip_to=v):#neighbors:
+                    if u < w or (v < w < u and
+                                       ##v not in G.pred[w] and
+                                       ##v not in G.succ[w]):
+                                       v not in neighborhoods_sorted[w]):
+
+                        triangle = enum_commons.get_subgraph_from_sparse(sparse_matrix,node_in_matrix,v,u,w)
+                        #code = _tricode(G, v, u, w)
+                        code = tricode(triangle, v, u, w)
+                        
+
+                        census[TRICODE_TO_NAME[code]] += 1
+                            
+                        triad_type = mapping_census_to_baseline[TRICODE_TO_NAME[code]]
+
+                        res,edges_by_time = define_triad_order_new(triangle)
+
+                        triad_abc = res['ordered_triad']
+                        #print("Ready for dispatcher with ", triad_type)
+                        dispatcher[triad_type](result, triangle,triad_abc,edges_by_time)
+                        #print("Dispatcher ok for ",triad_type)
+                        
+                        if STORE_CLOSED and ( triad_type in [6,7,8,9,10,11,12] ):
+                            positive_examples.append(enum_commons.store_triad( vals=(v,u,w) ) ) 
+                
+            processed +=1
+            completion = "{:.2f}".format(processed*100/total)
+            uptime =  timedelta(seconds=int(time.time() - t_started))
+            # print("CHUNK",str(chunk_index),". Done v:", v, "vnbrs", len(vnbrs),";",
+            #       str(processed)," out of", total,":",completion,"%","uptime",uptime)
+            logging.printlog("CHUNK",str(chunk_index),". Done v:", v, "vnbrs", len(vnbrs),";",
+                  str(processed)," out of", total,":",completion,"%","uptime",uptime)
+
+
+        json.dump(result, zipfile, indent=4, sort_keys=True)
+        
+
+    filepath2 = directory_path+"/"+str(chunk_index)+"_COMPLETED.json.gz"
+    os.rename(filepath,filepath2)
+    
+    
+    if STORE_CLOSED:
+        #print("STORE_CLOSED")
+        storage_path = var_dict["storage_path"]
+        
+        filepath3 = storage_path+"/"+str(chunk_index)+"_TRIADS.csv.gz"
+                
+        with gzip.open( filepath3, 'wb') as f_out:
+            f_out.writelines(positive_examples)
+        
+        
+
+    # print(datetime.now(),"Fine",chunk_index,"RANGE:",start,stop)
+    logging.printlog(datetime.now(),"Fine",chunk_index,"RANGE:",start,stop)
+    
+    # return {"census":census}
+    return result #{"census":census}
+
+
+
+# Old version
+
+def count_for_open(result, pr_bits, outdeg_bits,triangle,triad_abc,edges_by_time):
+    result['pageranks_open'][pr_bits] +=1
+    result['outdegrees_open'][outdeg_bits] +=1
+    ####istances_open[istance_bits] +=1
+
 def count_for_closed(result, pr_bits, outdeg_bits,triangle,triad_abc,edges_by_time):
     #edges_by_time = res['ordered_edges']
 
@@ -236,7 +450,6 @@ def count_for_closed(result, pr_bits, outdeg_bits,triangle,triad_abc,edges_by_ti
 
     result['closing_edge_pagerank'][(pr_bits+closing_edge_type)] +=1
     result['closing_edge_outdegrees'][(outdeg_bits+closing_edge_type)] +=1
-
     
 def init_worker(params,dummy_variable): #,PR, PR_shape):
     
@@ -276,7 +489,6 @@ def init_worker(params,dummy_variable): #,PR, PR_shape):
         var_dict['neighborhoods']  = pickle.load(f)
 
     # print("Init worker FINISH")
-    
 
 #@monitor_elapsed_time
 def enumerate_triadic_census(chunk_index):
@@ -484,7 +696,6 @@ def enumerate_triadic_census(chunk_index):
     return result #{"census":census}
     
 
-    
 # def get_triad_type(nxG, v,u,w):
 #     #code = _tricode(G, v, u, w)
 #     code = tricode(nxG, v, u, w)

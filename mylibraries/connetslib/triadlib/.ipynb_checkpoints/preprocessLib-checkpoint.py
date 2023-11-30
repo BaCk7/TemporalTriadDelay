@@ -91,8 +91,6 @@ def get_neighborhoods(mapped_graph,path):
     neighborhoods_list = { v: sorted(list(s)) for v,s in neighborhoods.items() }
     
     if path:
-        # with open(path +"_neighborhoods.pkl","wb+") as f:
-        #     pickle.dump(neighborhoods,f)
         with open(path +"_neighborhoods_lists.pkl","wb+") as f:
             pickle.dump(neighborhoods_list,f)
     
@@ -140,7 +138,7 @@ def calc_outdegree_elite(mapped_graph,path):
 
 
 @monitor_elapsed_time
-def preprocess_snapshot(original_digraph, path, graph_name, mapping_user_id, timestamp_to_index, is_mapped = False):
+def preprocess_snapshot(original_digraph, path, graph_name, mapping_user_id, timestamp_to_index, is_mapped = False, elite=False):
     
     ### fai una sottocartella all'interno di path per lo snapshot e i file aggiuntivi    
     path = path+"/"+graph_name
@@ -166,10 +164,12 @@ def preprocess_snapshot(original_digraph, path, graph_name, mapping_user_id, tim
 
     #Neighboorhoods e altre strutture per velocizzare  i passi successivi come generate_triads.py
     get_neighborhoods(mapped_graph,path)
-
-    calc_pagerank_elite(mapped_graph,path)
     
-    calc_outdegree_elite(mapped_graph,path)
+    if elite:
+
+        calc_pagerank_elite(mapped_graph,path)
+    
+        calc_outdegree_elite(mapped_graph,path)
         
     return path
     
@@ -211,7 +211,7 @@ def make_folder(dirname):
 #     return dirname
 
 @monitor_elapsed_time
-def new_generate_snapshot(G, params, current_T_limit = None):
+def new_generate_snapshot(G, params, current_T_limit = None, elite=False):
     
     # params["SNAPSHOTS_PATH"] = f"./{params['DATA_FOLDER']}/{params['DATASET_NAME']}/" # Attenzione allo "/" finale, altrimenti non scrive nella sottocartella
     params["SNAPSHOTS_PATH"] = f"{params['DATA_FOLDER']}/{params['DATASET_NAME']}/" # Attenzione allo "/" finale, altrimenti non scrive nella sottocartella
@@ -242,9 +242,6 @@ def new_generate_snapshot(G, params, current_T_limit = None):
     ## Snapshot fino a current_T_limit
 
     G_snapshot = generate_snapshot(G, current_T_limit, timestamp_key = params["TIMESTAMP_KEY"])
-    
-    
-    
 
 
     ## preprocessing prima di fare scrittura per risparmiare spazio in RAM
@@ -254,7 +251,8 @@ def new_generate_snapshot(G, params, current_T_limit = None):
                                         graph_name = params["GRAPH_NAME"],
                                         mapping_user_id=mapping_user_id,
                                         timestamp_to_index=timestamp_map,
-                                        is_mapped = False)
+                                        is_mapped = False,
+                                        elite = elite)
     
     params["base_prefix_for_snapshot_data"] = path
 
@@ -267,8 +265,12 @@ def new_generate_snapshot(G, params, current_T_limit = None):
     params["number_of_nodes"] = G_snapshot.number_of_nodes()
     params["number_of_edges"] = G_snapshot.number_of_edges()
     
-    for k in ["_mapped.pkl","_neighborhoods_lists.pkl", "_elite_pageranks.pkl", "_elite_outdegrees.pkl"]: # "_neighborhoods.pkl",
+    for k in ["_mapped.pkl","_neighborhoods_lists.pkl"]: 
         params[f"path{k.split('.')[0]}"] = path + k
+    
+    if elite:
+        for k in ["_elite_pageranks.pkl", "_elite_outdegrees.pkl"]: 
+            params[f"path{k.split('.')[0]}"] = path + k
     
     import json
 

@@ -1,6 +1,6 @@
 import os
 
-def directed_triadic_census_elite(G, timestamp_key = "t", save_name= "karatetestgraph", folder="triadic_data", store_closed=True, processes=2, max_subprocesses=None):
+def directed_triadic_census_elite(G, timestamp_key = "t", save_name= "karatetestgraph", folder="triadic_data", store_closed=True, processes=2, max_subprocesses=None, elite = False):
     
     from . import preprocessLib as preprocessLib
     from . import enum_commons as enum_commons
@@ -11,7 +11,8 @@ def directed_triadic_census_elite(G, timestamp_key = "t", save_name= "karatetest
         "DATA_FOLDER": folder, # folder where the library can store the data, will be created
         "DATASET_NAME": save_name, # subfolder for this dataset, multiple snapshots can be stored here. it will be created
         "TIMESTAMP_KEY": timestamp_key,
-        "STORE_CLOSED":store_closed # wheter or not to save data
+        "STORE_CLOSED":store_closed, # wheter or not to save data,
+        "elite":elite
     }
     
  
@@ -20,7 +21,7 @@ def directed_triadic_census_elite(G, timestamp_key = "t", save_name= "karatetest
     # with open('Log.txt','a+') as f:
     #     with contextlib.redirect_stdout(f):
 
-    preprocessLib.new_generate_snapshot(G, params, current_T_limit=None)
+    preprocessLib.new_generate_snapshot(G, params, current_T_limit=None, elite = elite)
     print()
     #print(params)
     print("Starting parallel census function")
@@ -29,12 +30,20 @@ def directed_triadic_census_elite(G, timestamp_key = "t", save_name= "karatetest
     if max_subprocesses is None:
         max_subprocesses = processes * 4
         
-    aggregated_results = enum_commons.parallelize_task(params, 
+    if elite:
+        print("Elite version")
+        aggregated_results = enum_commons.parallelize_task(params, 
                                                        init_worker=directed_census_utils.init_worker,
                                                        runnable_function= directed_census_utils.enumerate_triadic_census, 
                                                        processes=processes, 
                                                        max_subprocesses=max_subprocesses)
-
+    else:
+        print("Simple version")
+        aggregated_results = enum_commons.parallelize_task(params, 
+                                                       init_worker=directed_census_utils.init_worker_simple,
+                                                       runnable_function= directed_census_utils.enumerate_triadic_census_simple, 
+                                                       processes=processes, 
+                                                       max_subprocesses=max_subprocesses)
     
     
     return {"aggregated_results":aggregated_results, "result_path":params["result_path"] }
@@ -89,7 +98,7 @@ def make_folder(dirname):
 
 def directed_triadic_census_elite_significativity(G, timestamp_key = "t", save_name= "karatetestgraph",
                                                   folder="triadic_data", store_closed=True, processes=2, 
-                                                  max_subprocesses=None, N=10, graph_shuffle_func = None):
+                                                  max_subprocesses=None, N=10, graph_shuffle_func = None, elite = False):
 
     import os
     import gzip
@@ -120,7 +129,8 @@ def directed_triadic_census_elite_significativity(G, timestamp_key = "t", save_n
                                                                     save_name= run_name, 
                                                                     folder= folder_exp, 
                                                                     processes=processes,
-                                                                    store_closed = True)
+                                                                    store_closed = store_closed,
+                                                                    elite = elite)
 
     results["main"] = result
     
@@ -142,7 +152,8 @@ def directed_triadic_census_elite_significativity(G, timestamp_key = "t", save_n
                                                                 save_name= run_name, 
                                                                 folder= folder_exp, 
                                                                 processes= processes,
-                                                                store_closed = False)
+                                                                store_closed = store_closed,
+                                                                elite=elite)
 
         results["shuffled_runs"].append(r)
 
