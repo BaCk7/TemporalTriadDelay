@@ -26,21 +26,6 @@ import pickle
 
 import scipy.sparse
 
-#python Triadi/Scripts/census_list.py -p 15 -g snapshots4/snap-2017-04-30/snap-2017-04-30 -lv 300
-#17.40
-
-# from datetime import datetime,timedelta
-
-# import time
-
-# def monitor_elapsed_time(func):
-#     def wrapper(*args, **kwargs):
-#         print(datetime.now(), 'Starting', func.__name__)
-#         t_start = time.time()
-#         ret = func(*args, **kwargs)
-#         print(datetime.now(),'Completed',func.__name__ ,'in ', time.time()-t_start)
-#         return ret
-#     return wrapper
 from .enum_commons import monitor_elapsed_time
 
 
@@ -82,7 +67,6 @@ def tricode(G, v, u, w):
     return sum(x for u, v, x in combos if v in G[u])
 
 
-#@monitor_elapsed_time
 def define_triad_order_new(triangle):
 
     edges_by_time = sorted(triangle.edges().data(), key=lambda x: x[2]['t'])
@@ -148,16 +132,15 @@ def define_triad_order_new_timestamp_key(triangle, timestamp_key ='t'):
 
     b = b.pop()
 
-    return {"ordered_triad": (a,b,c)}, edges_by_time#, "ordered_edges": edges_by_time} #Mi sa che ho dimenticato di mettere in dict
+    return {"ordered_triad": (a,b,c)}, edges_by_time
+    #, "ordered_edges": edges_by_time}
+    
 
-
-#@monitor_elapsed_time
 def triad_code_pagerank(triad_abc, pageranks):
 
     pr_bits = "".join([str(pageranks[n]) for n in triad_abc])
     return pr_bits
 
-#@monitor_elapsed_time
 def triad_code_outdegree(triad_abc, outdegrees):
     outdeg_bits = "".join([ str(outdegrees[n]) for n in triad_abc])
     return outdeg_bits
@@ -209,8 +192,6 @@ def analyze_triad_closure(triangle, ordered_triad, edges_by_time):
         closure_state = triad_type
 
     return {"evolution": (str(before_closure), str(closure_state)), "closing_time":closing_time}
-
-
 
     
 def count_for_open_simple(result, triangle,triad_abc,edges_by_time):
@@ -289,8 +270,7 @@ def enumerate_triadic_census_simple(chunk_index):
 
     directory_path = var_dict['directory_path']
     chunk_size = var_dict['chunk_size']
-    limit = var_dict["max_subprocesses"] #['limit']
-    #graph_name = var_dict['graph_name']
+    limit = var_dict["max_subprocesses"]
 
     node_in_matrix = var_dict['nim']
     sparse_matrix = var_dict['sparse']
@@ -305,10 +285,7 @@ def enumerate_triadic_census_simple(chunk_index):
 
     selected_nodes = sorted(list(neighborhoods_sorted.keys()))
 
-
-    limitv = limit #,limitu,limitw = limit
-
-    step = limitv
+    step = limit
     indexes = [ (i*step) + chunk_index for i in range(chunk_size)]
     selected_nodes = [selected_nodes[i] for i in indexes if i < len(selected_nodes)]
     
@@ -428,15 +405,11 @@ def enumerate_triadic_census_simple(chunk_index):
 def count_for_open(result, pr_bits, outdeg_bits,triangle,triad_abc,edges_by_time):
     result['pageranks_open'][pr_bits] +=1
     result['outdegrees_open'][outdeg_bits] +=1
-    ####istances_open[istance_bits] +=1
 
 def count_for_closed(result, pr_bits, outdeg_bits,triangle,triad_abc,edges_by_time):
-    #edges_by_time = res['ordered_edges']
 
     res = analyze_triad_closure(triangle, triad_abc, edges_by_time)
     evolution = res["evolution"]
-    ###closing_time = result["closing_time"]
-    ###closing_dates[closing_time] +=1 ####closing_dates[closing_time.strftime("%d-%m-%Y")]+=1
 
     evol = "".join(list(evolution))
     #print("EVOLUTION HERE: ------>",evolution, evol,result)
@@ -444,7 +417,6 @@ def count_for_closed(result, pr_bits, outdeg_bits,triangle,triad_abc,edges_by_ti
 
     result['pageranks_closed'][pr_bits] +=1
     result['outdegrees_closed'][outdeg_bits] +=1
-    ####istances_closed[istance_bits] +=1
     a,b,c = triad_abc
     closing_edge_type = str(int(triangle.has_edge(a,c))) + "" + str(int(triangle.has_edge(c,a)))
 
@@ -544,10 +516,7 @@ def enumerate_triadic_census(chunk_index):
 
     selected_nodes = sorted(list(neighborhoods_sorted.keys()))
 
-
-    limitv = limit #,limitu,limitw = limit
-
-    step = limitv
+    step = limit
     indexes = [ (i*step) + chunk_index for i in range(chunk_size)]
     selected_nodes = [selected_nodes[i] for i in indexes if i < len(selected_nodes)]
     
@@ -564,11 +533,9 @@ def enumerate_triadic_census(chunk_index):
     ############ All'inizio del census
     pageranks_open = {'000': 0, '001': 0, '010': 0, '011': 0, '100': 0, '101': 0, '110': 0, '111': 0}
     outdegrees_open = {'000': 0, '001': 0, '010': 0, '011': 0, '100': 0, '101': 0, '110': 0, '111': 0}
-    ####istances_open = {'000': 0, '001': 0, '010': 0, '011': 0, '100': 0, '101': 0, '110': 0, '111': 0}
 
     pageranks_closed = {'000': 0, '001': 0, '010': 0, '011': 0, '100': 0, '101': 0, '110': 0, '111': 0}
     outdegrees_closed = {'000': 0, '001': 0, '010': 0, '011': 0, '100': 0, '101': 0, '110': 0, '111': 0}
-    ####istances_closed = {'000': 0, '001': 0, '010': 0, '011': 0, '100': 0, '101': 0, '110': 0, '111': 0}
 
     evolutions = {'06': 0, '010': 0,
                   '16': 0, '17': 0, '19': 0,
@@ -581,28 +548,17 @@ def enumerate_triadic_census(chunk_index):
 
     closing_edge_pagerank = {'00001': 0, '00010': 0, '00011': 0, '00101': 0, '00110': 0, '00111': 0, '01001': 0, '01010': 0, '01011': 0, '01101': 0, '01110': 0, '01111': 0, '10001': 0, '10010': 0, '10011': 0, '10101': 0, '10110': 0, '10111': 0, '11001': 0, '11010': 0, '11011': 0, '11101': 0, '11110': 0, '11111': 0}
     closing_edge_outdegrees = {'00001': 0, '00010': 0, '00011': 0, '00101': 0, '00110': 0, '00111': 0, '01001': 0, '01010': 0, '01011': 0, '01101': 0, '01110': 0, '01111': 0, '10001': 0, '10010': 0, '10011': 0, '10101': 0, '10110': 0, '10111': 0, '11001': 0, '11010': 0, '11011': 0, '11101': 0, '11110': 0, '11111': 0}
-    ####closing_edge_istance = {'00001': 0, '00010': 0, '00011': 0, '00101': 0, '00110': 0, '00111': 0, '01001': 0, '01010': 0, '01011': 0, '01101': 0, '01110': 0, '01111': 0, '10001': 0, '10010': 0, '10011': 0, '10101': 0, '10110': 0, '10111': 0, '11001': 0, '11010': 0, '11011': 0, '11101': 0, '11110': 0, '11111': 0}
 
     result = {
             'census': census,
             'evolutions': evolutions,
             'pageranks_open': pageranks_open,
             'outdegrees_open': outdegrees_open,
-            ####'istances_open': istances_open,
             'pageranks_closed': pageranks_closed,
             'outdegrees_closed': outdegrees_closed,
-            ####'istances_closed': istances_closed,
-            ####'closing_dates':closing_dates,
             'closing_edge_pagerank':closing_edge_pagerank,
             'closing_edge_outdegrees':closing_edge_outdegrees####,
-            ####'closing_edge_istance':closing_edge_istance
             }
-
-    #buffer_limit = limitw
-    #print("Limit ws per line:",limitw)
-    
-    
-    
     
     positive_examples = []
 
@@ -640,7 +596,6 @@ def enumerate_triadic_census(chunk_index):
                                        ##v not in G.succ[w]):
                                        v not in neighborhoods_sorted[w]):
 
-                        #ws.app2022-03-03 11:56:15.219817 Fine 0 RANGE: 0 9end(w)
                         triangle = enum_commons.get_subgraph_from_sparse(sparse_matrix,node_in_matrix,v,u,w)
                         #code = _tricode(G, v, u, w)
                         code = tricode(triangle, v, u, w)
@@ -687,28 +642,10 @@ def enumerate_triadic_census(chunk_index):
         with gzip.open( filepath3, 'wb') as f_out:
             f_out.writelines(positive_examples)
         
-        
-
     # print(datetime.now(),"Fine",chunk_index,"RANGE:",start,stop)
     logging.printlog(datetime.now(),"Fine",chunk_index,"RANGE:",start,stop)
     
-    # return {"census":census}
     return result #{"census":census}
-    
-
-# def get_triad_type(nxG, v,u,w):
-#     #code = _tricode(G, v, u, w)
-#     code = tricode(nxG, v, u, w)
-
-#     #census[TRICODE_TO_NAME[code]] += 1
-
-#     triad_type = mapping_census_to_baseline[TRICODE_TO_NAME[code]]
-    
-#     return triad_type
-
-# def get_tricode_name(nxG, v,u,w):
-#     code = tricode(nxG, v, u, w)
-#     return TRICODE_TO_NAME[code]
 
 
 def get_triad_type(nxG):
